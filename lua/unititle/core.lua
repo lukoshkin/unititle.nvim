@@ -1,6 +1,8 @@
 local fn = vim.fn
 local api = vim.api
+
 local M = {}
+M.emphasized_titles = {}
 
 
 local function tbl_cnt (tbl)
@@ -34,23 +36,15 @@ local function minmax_len_among_lists (lists, opts)
 end
 
 
-function M.only_normal_windows ()
-  local normal_windows = vim.tbl_filter(function (key)
-    return api.nvim_win_get_config(key).relative == ''
-  end, api.nvim_tabpage_list_wins(0))
-  return normal_windows
-end
-
-
-function M.get_active_bufs ()
+function get_active_bufs ()
   local bufs = api.nvim_list_bufs()
   bufs = vim.tbl_filter(function (b) return vim.bo[b].buflisted end, bufs)
   return bufs
 end
 
 
-function M.find_active_bufs (pat)
-  local bufs = M.get_active_bufs()
+function find_active_bufs (pat)
+  local bufs = get_active_bufs()
   bufs = vim.tbl_filter(function (b)
     return api.nvim_buf_get_name(b):match(pat)
   end, bufs)
@@ -58,9 +52,9 @@ function M.find_active_bufs (pat)
 end
 
 
-function M.similar_buf_names ()
+function similar_buf_names ()
   local similar = {}
-  local bufs = M.get_active_bufs()
+  local bufs = get_active_bufs()
   vim.tbl_map(function (bnr)
     local name = api.nvim_buf_get_name(bnr)
     local stem = vim.fs.basename(name)
@@ -79,7 +73,7 @@ local function distinct_parent_ids (similar)
   end
 
   local max_len = minmax_len_among_lists(similar, { mode = 'max' })
-  for i = max_len, 1, -1 do
+  for i = 1, max_len do
     local notna = {}
     vim.tbl_map(
       function (parents)
@@ -105,7 +99,10 @@ end
 local function remove_common_prefix (similar)
   if tbl_cnt(similar) < 2 then return end
   local min_len = minmax_len_among_lists(similar)
-  while min_len > 0 do
+  --- Why not to 0:
+  --- a/b  after transform  b
+  --- a/                    ''
+  while min_len > 1 do
     local all_same = true
     local prev_name = nil
     for _, parents in pairs(similar) do
@@ -126,9 +123,37 @@ local function remove_common_prefix (similar)
 end
 
 
-function M.unique_name (buf_name)
+function lazy_merging (emphasized)
+  local titles = {}
+  local nbufs = tbl_cnt(emphasized)
+
+  local i = 0
+  local freqs
+  local rec_cnt = 0
+  while tbl_cnt(freqs) < nbufs do
+    freqs = {}
+    for key, parents in pairs(emphasized) do
+      local elem = parents[#parents - i]
+      local sep = ''
+      if elem and titles[key] and titles[key] ~= '' then
+        sep = M.title_section_sep
+      end
+      titles[key] = (elem or '') .. sep .. (titles[key] or '')
+      if #titles[key] > 0 then
+        freqs[titles[key]] = (freqs[titles[key]] or 0) + 1
+      end
+    end
+    i = i + 1
+    rec_cnt = rec_cnt + 1
+  end
+
+  return titles
+end
+
+
+function M.emphasize_similar (buf_name)
   local stem = vim.fs.basename(buf_name)
-  local similar = M.similar_buf_names()[stem]
+  local similar = similar_buf_names()[stem]
   if similar == nil or tbl_cnt(similar) < 2 then
     return ""
   end
@@ -141,25 +166,30 @@ function M.unique_name (buf_name)
   remove_common_prefix(similar)
   local par_ids = distinct_parent_ids(similar)
   local emphasized = {}
-  for i = 0, #par_ids-1 do
+  for _, id in pairs(par_ids) do
     for key_name, parents in pairs(similar) do
       emphasized[key_name] = emphasized[key_name] or {}
-      local id = #parents - par_ids[#par_ids - i]
       table.insert(emphasized[key_name], parents[id])
     end
   end
 
-  for key_name, tbl in pairs(emphasized) do
-    emphasized[key_name] = table.concat(tbl, ' : ')
+  --- Again:
+  --- a/b  after the code above  b   after the loop below  b
+  --- a/                         ""                        a
+  for key_name, parents in pairs(similar) do
+    if #emphasized[key_name] == 0 then
+      table.insert(emphasized[key_name], parents[#parents])
+    end
   end
 
-  return emphasized[buf_name]
+  M.emphasized_titles = lazy_merging(emphasized)
+  return M.emphasized_titles[buf_name]
 end
 
 
-function M.set_winbar ()
+function M.set_default_winbar ()
   local name = api.nvim_buf_get_name(0)
-  local name = M.unique_name(name)
+  local name = M.emphasized_titles[name] or vim.fs.basename(name)
   vim.wo.winbar = name
 
   local ok, navic = pcall(require, 'nvim-navic')
