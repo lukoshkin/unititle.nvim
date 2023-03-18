@@ -3,6 +3,16 @@ local api = vim.api
 local M = {}
 
 
+local function apply_to_normal_wins (fn)
+  for _, win in pairs(vim.tbl_filter(function(win)
+    return api.nvim_win_get_config(win).relative == ''
+  end, api.nvim_tabpage_list_wins(0)))
+  do
+    api.nvim_win_call(win, fn)
+  end
+end
+
+
 function M.setup (conf)
   conf = conf or {}
   ut.title_section_sep = conf.title_section_sep or ':'
@@ -13,13 +23,20 @@ function M.setup (conf)
     api.nvim_create_autocmd({ "BufWinEnter" }, {
       callback = function ()
         local name = api.nvim_buf_get_name(0)
-        require'unititle.core'.emphasize_similar(name)
+        if not ut.aucmd_event_locked then
+          vim.schedule(function ()
+            ut.emphasize_similar(name)
+            apply_to_normal_wins(ut.set_default_winbar)
+            ut.aucmd_event_locked = nil
+          end, 100)
+          ut.aucmd_event_locked = true
+        end
       end,
       group = aug_ut,
     })
     if conf.default_winbar then
       api.nvim_create_autocmd({ "CursorMoved" }, {
-        callback = require'unititle.core'.set_default_winbar,
+        callback = ut.set_default_winbar,
         group = aug_ut,
       })
     end
