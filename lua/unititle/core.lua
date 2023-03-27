@@ -15,8 +15,8 @@ end
 
 local function minmax_len_among_lists (lists, opts)
   local subid = function (elem)
-    if opts and opts.tubple_id then
-      return elem[opts.tubple_id]
+    if opts and opts.tuple_id then
+      return elem[opts.tuple_id]
     end
     return elem
   end
@@ -75,7 +75,7 @@ end
 
 local function _tail_alignment_trim(kv_pairs)
   local last_same
-  local min_len = minmax_len_among_lists(kv_pairs, { tubple_id = 2 })
+  local min_len = minmax_len_among_lists(kv_pairs, { tuple_id = 2 })
   local i = 0
 
   while i < min_len do
@@ -96,6 +96,7 @@ local function _tail_alignment_trim(kv_pairs)
       for _, kv in pairs(kv_pairs) do
         last_same = table.remove(kv[2], #kv[2] - i)
       end
+      min_len = min_len - 1
     end
   end
 
