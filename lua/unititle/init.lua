@@ -15,7 +15,7 @@ end
 
 function M.setup (conf)
   conf = conf or {}
-  ut.title_section_sep = conf.title_section_sep or ':'
+  ut.title_section_sep = conf.title_section_sep or ' : '
   local aug_ut = api.nvim_create_augroup('Unititle', {clear = true})
 
   --- Set up 'winbar'.
@@ -23,13 +23,17 @@ function M.setup (conf)
     api.nvim_create_autocmd({ "BufWinEnter" }, {
       callback = function ()
         local name = api.nvim_buf_get_name(0)
+        --- If opening multiple buffers at the same time,
+        --- update titles only once.
         if not ut.aucmd_event_locked then
           vim.schedule(function ()
             ut.emphasize_similar(name)
             apply_to_normal_wins(ut.set_default_winbar)
             ut.aucmd_event_locked = nil
-          end, 100)
+          end)
           ut.aucmd_event_locked = true
+          --- As a result, if opening several buffers,
+          --- just one operation will be scheduled.
         end
       end,
       group = aug_ut,

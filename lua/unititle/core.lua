@@ -3,6 +3,7 @@ unpack = unpack or table.unpack
 
 local M = {}
 M.emphasized_titles = {}
+M.title_section_sep = ' : '  -- may be overridden in `.setup` call
 
 
 local function tbl_cnt (tbl)
@@ -271,11 +272,15 @@ end
 
 function M.set_default_winbar ()
   local name = api.nvim_buf_get_name(0)
+  if string.match(name, '%%') then
+    return
+  end
+
   name = M.emphasized_titles[name] or vim.fs.basename(name)
   vim.wo.winbar = name
 
   local ok, navic = pcall(require, 'nvim-navic')
-  local sep = vim.g.winbar_first_sep  -- alias
+  local sep = M.title_section_sep  -- alias
 
   local lsp_loc
   if ok and navic.is_available() then
