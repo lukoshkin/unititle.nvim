@@ -132,35 +132,35 @@ local function tail_alignment_trim (similar)
 end
 
 
-local function distinct_parent_ids (similar)
-  local parent_ids = {}
-  --- Prevent from going further when not needed.
-  if similar == nil or tbl_cnt(similar) < 2 then
-    return parent_ids
-  end
-
-  local max_len = minmax_len_among_lists(similar, { mode = 'max' })
-  for i = 1, max_len do
-    local notna = {}
-    vim.tbl_map(
-      function (parents)
-        if parents[i] ~= nil then
-          table.insert(notna, parents[i])
-        end
-      end, similar)
-    local all_same = #notna > 1
-    for j = 2, #notna do
-      if notna[j] ~= notna[1] then
-        all_same = false
-        break
-      end
-    end
-    if not all_same then
-      table.insert(parent_ids, i)
-    end
-  end
-  return parent_ids
-end
+-- local function distinct_parent_ids (similar)
+--   local parent_ids = {}
+--   --- Prevent from going further when not needed.
+--   if similar == nil or tbl_cnt(similar) < 2 then
+--     return parent_ids
+--   end
+--
+--   local max_len = minmax_len_among_lists(similar, { mode = 'max' })
+--   for i = 1, max_len do
+--     local notna = {}
+--     vim.tbl_map(
+--       function (parents)
+--         if parents[i] ~= nil then
+--           table.insert(notna, parents[i])
+--         end
+--       end, similar)
+--     local all_same = #notna > 1
+--     for j = 2, #notna do
+--       if notna[j] ~= notna[1] then
+--         all_same = false
+--         break
+--       end
+--     end
+--     if not all_same then
+--       table.insert(parent_ids, i)
+--     end
+--   end
+--   return parent_ids
+-- end
 
 
 local function remove_common_prefix (similar)
@@ -270,7 +270,7 @@ end
 -- end
 
 
-function M.set_default_winbar ()
+function M.set_unique_winbar ()
   local name = api.nvim_buf_get_name(0)
   if string.match(name, '%%') then
     return
